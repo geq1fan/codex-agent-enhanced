@@ -1,74 +1,111 @@
 # Codex Agent Enhanced
 
-基于 [dztabel-happy/codex-agent](https://github.com/dztabel-happy/codex-agent) 的增强版 Codex 项目经理操作系统。
+OpenClaw 驱动 Codex CLI 的自动化工作流。基于 [dztabel-happy/codex-agent](https://github.com/dztabel-happy/codex-agent) 增强。
+
+**解决什么问题**：Codex 功能很强，但需要盯着终端。本 skill 让 OpenClaw 代你操作 —— 你说一句话，剩下的事情自动完成，结果推送到 Telegram。
 
 ---
 
-## 1️⃣ 与原版的区别
+## 1️⃣ 比原版多了什么
 
-| 功能 | 原版 | 增强版 |
-|------|------|--------|
-| 任务状态管理 | ❌ 无 | ✅ 5 状态机（running/review/committed/blocked/waiting） |
-| 质量判断标准 | ❌ 无 | ✅ 明确自主修复 vs 用户拍板的边界 |
-| Cron 定时任务协作 | ❌ 无 | ✅ wakeKey 去重机制 |
-| 状态文件模型 | ❌ 无 | ✅ JSON schema + notificationRouting |
-| 巡检逻辑 | ❌ 不清晰 | ✅ 基于 git diff 的自动化决策流程 |
+| 原版痛点 | 增强版解决方案 |
+|---------|---------------|
+| 没有任务状态，不知道 Codex 跑到哪一步 | **状态机**：5 个状态 `running → review_pending → committed \| blocked \| waiting_user_decision`，Codex 每步自动汇报 |
+| 不知道什么该自动修、什么该问用户 | **质量标准**：代码风格/小 bug 自动处理；架构改动/API 变更必问 |
+| Cron 唤醒时重复通知烦人 | **wakeKey 去重**：`<task>:<status>:<time>` 确保同一状态只通知一次 |
+| 没有状态文件，巡检没依据 | **JSON schema**：`notificationRouting` 定义不同状态该给谁发、怎么发 |
+| 巡检逻辑模糊 | **git diff 决策**：自动对比 `before/after` 判断是否需要继续 |
 
 ---
 
-## 2️⃣ 工作流与核心价值
+## 2️⃣ 工作流详解
 
-**一句话：用户当老板，OpenClaw 当员工，Codex 当工具。**
-
-传统方式：你坐在电脑前写提示词、盯着 Codex 输出、审批命令、检查结果。
-
-使用本 skill：你说一句话 → OpenClaw 设计最优提示词 → `codex exec --full-auto` 执行 → 完成自动通知你。
-
-### 工作流程
+### 完整流程
 
 ```
-用户下任务 → OpenClaw 设计提示词 → codex exec --full-auto → 
-notify hook 触发 → Telegram 通知 + Cron 巡检推进 → 用户收到结果
+┌─────────────┐    ┌──────────────┐    ┌────────────────┐
+│ 1.用户下单   │ → │ 2.OpenClaw   │ → │ 3.设计提示词    │
+│  "帮我写XX"  │    │  解析需求     │    │  选模型+工具    │
+└─────────────┘    └──────────────┘    └────────────────┘
+                                               ↓
+┌─────────────┐    ┌──────────────┐    ┌────────────────┐
+│ 6.Codex干活  │ ← │ 5.自动执行   │ ← │ 4.发送任务      │
+│             │    │  codex exec  │    │  到 Codex      │
+└──────┬──────┘    └──────────────┘    └────────────────┘
+       ↓
+┌─────────────┐    ┌──────────────┐    ┌────────────────┐
+│ 7.notify    │ → │ 8.Telegram   │ → │ 9.Cron 巡检     │
+│   hook触发   │    │   推送结果    │    │  推进下一状态   │
+└─────────────┘    └──────────────┘    └────────────────┘
+                                              ↓
+                                         ┌─────────────┐
+                                         │ 10.返回 6   │
+                                         │   或结束     │
+                                         └─────────────┘
 ```
 
-### 核心价值
+### 状态流转
 
-- **智能提示词工程**：根据任务类型选择模型、设计提示词、开启 feature flags，而非转发用户原话
-- **全程异步**：任务执行过程中无需守着，Cron 自动巡检状态推进
-- **实时可见**：每次 Codex 输出完整内容推送到 Telegram，随时可干预
+```
+                    ┌──────────────┐
+                    │   blocked    │ ← 依赖阻塞（如等待 Token）
+                    └──────┬───────┘
+                           │ 人工干预后
+                    ┌──────▼───────┐
+┌────────┐         │   running    │ ← Codex 执行中
+│ 用户   │         └──────┬───────┘
+│ 下令   │ ←──────────────┘
+└───┬────┘         ┌──────▼───────┐
+    │              │review_pending│ ← 等待验收
+    │              └──────┬───────┘
+    │                     │
+    │       ┌─────────────┼─────────────┐
+    │       ↓             ↓             ↓
+    │    ┌──────┐    ┌─────────┐    ┌──────────────┐
+    └────┤满意  │    │ 不满意   │    │ waiting_user │
+         └──┬───┘    └────┬────┘    │  _decision   │
+            │             │         └──────────────┘
+            ↓             ↓                ↑
+         ┌──────┐     ┌──────┐            │
+         │提交  │     │返工  │────────────┘
+         └──────┘     └──────┘    需要拍板的问题
+```
+
+### 三种触发方式
+
+| 场景 | 触发机制 | 你的操作 |
+|------|---------|---------|
+| **即时任务** | `codex exec --full-auto` + notify hook | 下命令，等通知 |
+| **长任务** | 步骤同上 → Cron 每 N 分钟巡检 | 下命令，去忙别的 |
+| **阻塞恢复** | 人工干预后 Cron 唤醒继续 | 解决问题后说一声 |
 
 ---
 
-## 3️⃣ 快速安装
+## 3️⃣ 快速开始
 
-### 一键配置
+### 第一步：确认前置条件
+
+- ✅ OpenClaw 已运行
+- ✅ Codex CLI 已安装：`pipx install openai-codex`
+- ✅ Telegram 已配置
+- ✅ **关闭 session 自动重置**（否则长任务会丢）
+
+### 第二步：执行安装脚本
 
 ```bash
 cd ~/.openclaw/skills/codex-agent
-./scripts/setup.sh cron   # 或 simple 仅基础通知
+./scripts/setup.sh cron
 ```
 
-### 手动配置
+或者手动配置（见 [SKILL.md](SKILL.md)）。
 
-1. **Codex 配置** `~/.codex/config.toml`：
+### 第三步：使用
 
-```toml
-notify = ["python3", "/root/.openclaw/skills/codex-agent/hooks/on_complete.py"]
 ```
-
-2. **Cron 配置**（完整工作流）：
-
-```bash
-openclaw cron add ./config/codex.cron.yml
+Telegram 对 OpenClaw 说：
+"用 Codex 在 /path/to/project 添加一个日期格式化函数"
 ```
-
-### 前置条件
-
-- OpenClaw 已安装运行
-- Codex CLI 已安装 (`pipx install openai-codex`)
-- Telegram 已配置为消息通道
-- ⚠️ **关闭 session 自动重置**（默认每天重置会丢失任务上下文）
 
 ---
 
-更多信息：[English](README_EN.md) | [INSTALL.md](INSTALL.md) | [SKILL.md](SKILL.md)
+**详细文档**：[SKILL.md](SKILL.md)（工作流程）、[INSTALL.md](INSTALL.md)（安装）、[English](README_EN.md)
