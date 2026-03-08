@@ -90,9 +90,19 @@ OpenClaw 驱动 Codex CLI 的自动化工作流。基于 [dztabel-happy/codex-ag
 - ✅ Telegram 已配置
 - ✅ **关闭 session 自动重置**（否则长任务会丢）
 
-### 第二步：执行安装脚本
+### 第二步：安装本 skill
+
+**方式一：ClawHub 安装（推荐）**
 
 ```bash
+clawhub install codex-agent-enhanced
+```
+
+**方式二：GitHub 安装**
+
+```bash
+git clone https://github.com/geq1fan/codex-agent-enhanced.git \
+  ~/.openclaw/skills/codex-agent
 cd ~/.openclaw/skills/codex-agent
 ./scripts/setup.sh cron
 ```
