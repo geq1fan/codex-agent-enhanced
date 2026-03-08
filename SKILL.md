@@ -1,9 +1,9 @@
 ---
-name: codex-agent
+name: codex-agent-enhanced
 description: "作为项目经理操作 OpenAI Codex CLI 完全体。包含：知识库维护（自动跟踪 Codex 最新功能）、任务执行（提示词设计→执行→监控→质量检查→迭代→汇报）、配置管理（feature flags/模型/skills/MCP）。通过 tmux 操作交互式 TUI，通过 notify hooks + pane monitor 实现异步唤醒。NOT for: 简单单行编辑（用 edit）、读文件（用 read）、快速问答（直接回答）。"
 ---
 
-# Codex Agent — 项目经理操作系统
+# Codex Agent Enhanced — 增强版项目经理操作系统
 
 > 你不是 Codex 的遥控器，你是 Codex 的项目经理。
 > 你的职责：理解需求、设计方案、指挥执行、监督质量、向老板汇报。
@@ -82,9 +82,52 @@ description: "作为项目经理操作 OpenAI Codex CLI 完全体。包含：知
 
 #### 方式 A：exec 模式（推荐，简单任务）
 
+**你（Agent）需要在执行前 export 环境变量**。
+
+**为什么必须 export**：
+1. **Codex 在独立 PTY 会话中执行**，不会继承调用时的 shell 环境变量
+2. **多项目并发隔离**：每个项目有独立的 `.env` 文件，避免参数互相打架
+3. **notify hook 需要这些变量**：`AGENT_NAME` 选择 bot 账号，`CHAT_ID` 决定通知目标
+
+**标准流程**：
 ```bash
-# 后台执行，notify hook 完成后自动唤醒
-nohup codex exec --full-auto -C <workdir> "<prompt>" > /tmp/codex_exec_output.txt 2>&1 &
+# 1. 进入项目目录
+cd /path/to/project
+
+# 2. 加载项目专属配置（每个项目独立，避免冲突）
+source .env
+
+# 3. 验证环境变量
+echo "AGENT=$OPENCLAW_AGENT_NAME, CHAT=$OPENCLAW_AGENT_CHAT_ID"
+
+# 4. 执行 Codex 任务
+codex exec --full-auto -C <workdir> "<prompt>"
+```
+
+**`.env` 文件示例**（每个项目独立一份）：
+```bash
+# /path/to/project/.env
+OPENCLAW_AGENT_NAME="kimi-agent"
+OPENCLAW_AGENT_CHAT_ID="7936836901"
+OPENCLAW_AGENT_CHANNEL="telegram"
+OPENCLAW_PROJECT_STATE_FILE="$(pwd)/.codex-task-state.json"
+OPENCLAW_PROJECT_TASK_ID="TASK-001"
+```
+
+**❌ 错误做法**（多项目会冲突）：
+```bash
+# 全局 export，所有项目共用同一套配置
+export OPENCLAW_AGENT_NAME="main"  # 所有项目都用 main，混乱！
+codex exec ...
+```
+
+**✅ 正确做法**（项目隔离）：
+```bash
+# 项目 A
+cd /path/to/project-a && source .env && codex exec ...
+
+# 项目 B（同时运行，互不影响）
+cd /path/to/project-b && source .env && codex exec ...
 ```
 
 附加选项：
@@ -179,6 +222,107 @@ bash <skill_dir>/hooks/stop_codex.sh codex-<name>
 
 ---
 
+## 任务状态管理
+
+### 状态机定义
+
+| 状态 | 含义 | 触发条件 | 下一步动作 |
+|------|------|----------|-----------|
+| `codex_running` | Codex 正在执行 | 启动 `codex exec` 后 | 等待 hook 唤醒 |
+| `review_pending` | Codex 已完成，等待检查 | `on_complete.py` 触发 | 检查 git diff、运行测试、判断质量 |
+| `committed` | 已完成并提交 | 验收通过，git commit 完成 | 清空 activeTask |
+| `blocked` | 出现 blocker | 执行失败/异常/需要用户决策 | 发送用户可见通知 |
+| `waiting_user_decision` | 等待用户拍板 | 方向性问题、架构大改 | 发送用户可见通知 |
+
+### 状态文件模型
+
+```json
+{
+  "project": "codex-task",
+  "sessionKey": "agent:<AGENT_NAME>:main",
+  "notificationRouting": {
+    "channel": "telegram",
+    "target": "<CHAT_ID>",
+    "accountId": "<BOT_ACCOUNT>"
+  },
+  "activeTask": {
+    "taskId": "<TASK_ID>",
+    "taskDir": "<TASK_DIR>",
+    "status": "review_pending",
+    "runner": {
+      "kind": "codex_exec",
+      "completedAt": "2026-03-08T10:00:00+08:00",
+      "summary": "完成摘要"
+    }
+  },
+  "lastWakeKey": "<taskId>:<status>:<updatedAt>",
+  "lastCommittedTask": null
+}
+```
+
+**状态文件路径**：由环境变量 `OPENCLAW_PROJECT_STATE_FILE` 指定，或项目根目录 `.codex-task-state.json`。
+
+### 质量判断标准
+
+**✅ Agent 自主修复（不需要通知用户）**：
+- 代码风格问题（命名、格式、注释）
+- 测试覆盖率不足（补充测试即可）
+- 小的逻辑 bug（单文件内修复）
+- 文档/注释更新
+- 类型定义完善
+
+**⚠️ 需要用户拍板（发送通知）**：
+- 架构层面改动（新增模块、重构核心逻辑）
+- 技术栈变更（新依赖、新框架）
+- API 接口变更（影响外部调用）
+- 需求理解偏差（与原始任务目标不符）
+- 超出任务范围的大规模修改
+- 引入新的技术债务（临时方案、hardcode）
+
+**判断流程**：
+```
+Codex 完成 → 检查 git diff --stat
+  ↓
+变更 < 5 文件 且 无架构影响 → Agent 自主修复/验收
+  ↓
+变更 ≥ 5 文件 或 架构影响 → 评估是否方向性问题
+  ↓
+是方向性问题 → 状态改为 waiting_user_decision，发送通知
+否 → Agent 继续推进 review
+```
+
+### 去重规则
+
+生成 `wakeKey = <taskId>:<status>:<updatedAt>`。
+
+每次唤醒时：
+1. 读取全局 `lastWakeKey` 或 `activeTask.notify.lastWakeKey`
+2. 若与当前 `wakeKey` 相同，且没有新的用户通知需求 → 回复 `ANNOUNCE_SKIP`，不发消息
+3. 若不同，或有新的 blocker → 执行通知，更新 `lastWakeKey`
+
+**目的**：避免 Cron 每 10 分钟唤醒时重复通知用户。
+
+### Cron 定时任务协作
+
+**配置示例**（OpenClaw cron job）：
+```yaml
+- name: codex-task-waker
+  schedule: "*/10 * * * *"  # 每 10 分钟
+  sessionTarget: main       # 唤醒主会话
+  wakeMode: now
+```
+
+**注意事项**：
+1. `sessionTarget: main` 会唤醒配置中**第一个 agent** 的主会话
+2. 确保该 agent 已启用 `heartbeat`（即使 `every: 0`，也需要空对象占位）
+3. 状态文件路径通过 `.env` 传递给 Codex exec，确保 waker 能读取同一份状态
+
+```bash
+# 项目 .env 示例
+OPENCLAW_PROJECT_STATE_FILE="$(pwd)/.codex-task-state.json"
+```
+
+---
 ## 工作流 B：知识库更新
 
 ### 触发条件

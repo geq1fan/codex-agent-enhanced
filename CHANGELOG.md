@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.0-enhanced] - 2026-03-08
+
+### New in Enhanced Version
+- **任务状态管理章节** — 完整的状态机定义（codex_running / review_pending / committed / blocked / waiting_user_decision）
+- **状态文件模型** — JSON schema 包含 notificationRouting 和 activeTask 结构
+- **质量判断标准** — 明确区分「Agent 自主修复」vs「需要用户拍板」的场景清单
+- **去重规则** — wakeKey 生成逻辑，避免 Cron 频繁唤醒时重复通知用户
+- **Cron 定时任务协作指南** — sessionTarget、heartbeat 启用、.env 传递的配置说明
+- **判断流程图** — 基于 git diff --stat 的自动化决策流程
+
+### Changed
+- SKILL.md 从「纯执行手册」升级为「项目管理操作系统」，增加状态管理和质量把控能力
+- 明确 Agent 在 Cron 唤醒场景下的行为规范（ANNOUNCE_SKIP vs 发送通知）
+
+### Fixed
+- 解决了之前 SKILL.md 缺少状态机定义导致的巡检逻辑不清晰问题
+- 补充了通知去重规则，避免 Cron 每 10 分钟唤醒时重复骚扰用户
+
+---
+
 ## [0.2.0] - 2026-02-26
 
 ### Fixed
@@ -15,7 +35,7 @@ All notable changes to this project will be documented in this file.
 - `SKILL.md`: Updated chat ID references from hardcoded to environment variables
 - `state/version.txt`: Added trailing newline
 
-### Added
+### New in Enhanced Version
 - `INSTALL.md`: Complete 7-step installation guide with troubleshooting
 - `README_EN.md`: Full English README with language switcher
 - Environment variable support: `CODEX_AGENT_CHAT_ID` and `CODEX_AGENT_NAME` (no code changes needed for deployment)
@@ -33,12 +53,12 @@ All notable changes to this project will be documented in this file.
 
 ## [0.1.0] - 2026-02-25
 
-### Added
+### New in Enhanced Version
 - Initial release
 - SKILL.md: 8-step workflow engine for OpenClaw to operate Codex CLI
-- Dual-channel notification: Codex notify hook (`on_complete.py`) + tmux pane monitor (`pane_monitor.sh`)
+- Dual-channel notification: Codex notify hook (`on_complete.py`) + Terminal pane monitor (`pane_monitor.sh`)
 - One-click start/stop scripts (`start_codex.sh`, `stop_codex.sh`)
 - Knowledge base: 6 files covering features, config schema, capabilities, prompt patterns, update protocol, changelog
 - Workflows: standard task execution + knowledge base update (7-step process with 5-tier data sources)
 - Two approval modes: Codex auto (`--full-auto`) or OpenClaw approval
-- tmux persistence: Codex runs independent of OpenClaw turn lifecycle
+- Terminal persistence: Codex runs independent of OpenClaw turn lifecycle

@@ -12,12 +12,12 @@ In one sentence: **OpenClaw operates Codex CLI on behalf of the user.**
 
 Codex is OpenAI's terminal coding tool. It's powerful, but requires you to sit at your computer — writing prompts, watching output, approving commands, checking results. This skill lets OpenClaw do all of that for you.
 
-It comes down to two things: **tmux + hooks**.
+It comes down to two things: **Terminal + hooks**.
 
-- **tmux**: Codex runs in a tmux session. OpenClaw reads output and sends commands through tmux — exactly like a human would in the terminal
+- **Terminal**: Codex runs in a Terminal session. OpenClaw reads output and sends commands through Terminal — exactly like a human would in the terminal
 - **hooks**: When Codex finishes a task or waits for approval, it automatically notifies the user (Telegram) + wakes up OpenClaw to handle it
 
-You can `tmux attach` at any time to see what Codex is doing, or even take over.
+You can `接入查看` at any time to see what Codex is doing, or even take over.
 
 ## Full-Power Codex
 
@@ -46,7 +46,7 @@ With this skill:
 ```
 Lie in bed → Tell OpenClaw in Telegram "Add XX feature to this project" →
 OpenClaw starts Codex → Handles everything in between → Notifies you on Telegram when done →
-Not satisfied? Say one sentence to continue → Want to watch? tmux attach for live view
+Not satisfied? Say one sentence to continue → Want to watch? 接入查看 for live view
 ```
 
 **Core value: User is the boss, OpenClaw is the employee, Codex is the tool.**
@@ -60,7 +60,7 @@ Not satisfied? Say one sentence to continue → Want to watch? tmux attach for l
      ↓
 3. OpenClaw designs prompt, selects execution mode, confirms with user
      ↓
-4. OpenClaw launches Codex in tmux
+4. OpenClaw launches Codex in Terminal
      ↓
 5. Codex works, OpenClaw gets woken up via hooks:
    ├── Task complete → OpenClaw checks output quality
@@ -70,33 +70,33 @@ Not satisfied? Say one sentence to continue → Want to watch? tmux attach for l
    └── Directional issue → Immediately asks user for confirmation
      ↓
 6. User receives final result
-   (can tmux attach at any point during the process)
+   (can 接入查看 at any point during the process)
 ```
 
 OpenClaw handles the entire process autonomously, but **every step is simultaneously sent to Telegram** — task completion, approval requests, output content — all visible on your phone in real time. You can choose to ignore it (let OpenClaw handle it) or jump in and intervene at any time.
 
-## How It Works: tmux + hooks
+## How It Works: Terminal + hooks
 
-### tmux: Operating the Terminal Like a Human
+### Terminal: Operating the Terminal Like a Human
 
 OpenClaw operates Codex exactly like a human would:
 
 ```bash
 # Start Codex (same as typing in terminal)
-tmux send-keys -t codex-session 'codex --full-auto' Enter
+Terminal send-keys -t codex-session 'codex --full-auto' Enter
 
 # Send prompt (same as typing)
-tmux send-keys -t codex-session 'Implement XX feature'
+Terminal send-keys -t codex-session 'Implement XX feature'
 sleep 1
-tmux send-keys -t codex-session Enter
+Terminal send-keys -t codex-session Enter
 
 # Check output (same as looking at the screen)
-tmux capture-pane -t codex-session -p
+Terminal capture-pane -t codex-session -p
 ```
 
-Benefits of tmux:
+Benefits of Terminal:
 - **Not limited by OpenClaw turn timeout**: Codex can run as long as needed; OpenClaw checks in when woken up
-- **User can join anytime**: `tmux attach -t codex-session` to see real-time output
+- **User can join anytime**: `接入查看 -t codex-session` to see real-time output
 - **Persistent**: OpenClaw restart, network disconnect — Codex keeps running
 
 ### Hooks: Automatic Notifications for Task Completion and Approval Requests
@@ -115,9 +115,9 @@ Codex completes turn → on_complete.py
 
 Users see Codex's complete reply on Telegram — essentially real-time monitoring.
 
-**2. tmux pane monitor (approval requests)**
+**2. Terminal pane monitor (approval requests)**
 
-Codex's notify doesn't cover approval scenarios, so `pane_monitor.sh` monitors tmux output:
+Codex's notify doesn't cover approval scenarios, so `pane_monitor.sh` monitors Terminal output:
 
 ```
 Codex shows approval prompt → pane_monitor.sh detects keywords
@@ -131,9 +131,9 @@ Both mechanisms **trigger dual channels simultaneously**: user and OpenClaw both
 
 This is not a black box. At any time:
 
-- `tmux attach -t codex-session`: See exactly what Codex is doing
-- Type directly in tmux: Take over operation
-- `tmux detach`: Done watching, hand back to OpenClaw
+- `接入查看 -t codex-session`: See exactly what Codex is doing
+- Type directly in Terminal: Take over operation
+- `Terminal detach`: Done watching, hand back to OpenClaw
 
 ## Two Approval Modes
 
@@ -211,7 +211,7 @@ See **[CHANGELOG.md](CHANGELOG.md)** for what's new.
 
 - [OpenClaw](https://github.com/openclaw/openclaw) installed and running
 - [Codex CLI](https://github.com/openai/codex) installed
-- tmux installed
+- Terminal installed
 - Telegram configured as OpenClaw message channel
 - ⚠️ **OpenClaw session auto-reset must be disabled or extended** (default daily reset loses Codex task context, see [INSTALL.md](INSTALL.md))
 
@@ -220,7 +220,7 @@ See **[CHANGELOG.md](CHANGELOG.md)** for what's new.
 | Issue | Solution |
 |-------|----------|
 | OpenClaw daily session reset loses long task context | Disable auto-reset (see INSTALL.md) |
-| tmux send-keys text + Enter together, Codex unresponsive | Send separately with sleep 1s in between |
+| Terminal send-keys text + Enter together, Codex unresponsive | Send separately with sleep 1s in between |
 | `--full-auto` conflicts with shell alias | Check `~/.bashrc` / `~/.zshrc` for codex aliases |
 | Codex notify doesn't cover approval waits | pane_monitor.sh fills the gap |
 | `--full-auto` occasionally still prompts | pane monitor runs in all modes |

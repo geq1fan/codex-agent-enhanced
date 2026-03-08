@@ -1,11 +1,11 @@
 # Codex 本机能力清单
 
-> 最后更新: 2026-02-25
+> 最后更新：2026-03-08
 
 ## 基本信息
 
-- **版本**: 0.104.0
-- **默认模型**: gpt-5.2
+- **版本**: 0.110.0
+- **默认模型**: gpt-5.3-codex
 - **默认推理强度**: xhigh
 - **Provider**: custom (http://127.0.0.1:23000/v1, Responses API)
 - **个性**: friendly
@@ -106,22 +106,22 @@ request_rule(⚠️ removed，应清理)
 
 | 模型 | 推荐场景 | 切换方式 |
 |------|---------|---------|
-| gpt-5.2 (默认) | 大多数任务 | 已是默认 |
-| gpt-5.2 xhigh | 复杂推理、关键决策 | `/model gpt-5.2 xhigh`（已是默认） |
-| gpt-5.2 high | 平衡质量与速度 | `/model gpt-5.2 high` |
-| gpt-5.2 medium | 简单任务、节省 token | `/model gpt-5.2 medium` |
+| gpt-5.3-codex (默认) | 大多数任务 | 已是默认 |
+| gpt-5.3-codex xhigh | 复杂推理、关键决策 | `/model gpt-5.3-codex xhigh`（已是默认） |
+| gpt-5.3-codex high | 平衡质量与速度 | `/model gpt-5.3-codex high` |
+| gpt-5.3-codex medium | 简单任务、节省 token | `/model gpt-5.3-codex medium` |
 
 > ⚠️ 注意 config.toml 中有模型迁移提示：
-> - `gpt-5.2` → `gpt-5.3-codex`
-> - `gpt-5.1-codex-max` → `gpt-5.2-codex`
+> - `gpt-5.3-codex` → `gpt-5.3-codex`
+> - `gpt-5.1-codex-max` → `gpt-5.3-codex-codex`
 
 ## 模型选择策略
 
 | 任务类型 | 推荐配置 |
 |---------|---------|
-| 简单修改/格式化 | gpt-5.2 medium |
-| 常规开发 | gpt-5.2 high |
-| 复杂架构/超难 bug | gpt-5.2 xhigh（当前默认） |
+| 简单修改/格式化 | gpt-5.3-codex medium |
+| 常规开发 | gpt-5.3-codex high |
+| 复杂架构/超难 bug | gpt-5.3-codex xhigh（当前默认） |
 | 代码审查 | 可用 `review_model` 单独配置 |
 
 ## 已信任的项目目录
@@ -146,7 +146,7 @@ $skill_name 任务描述
 
 ### 模型切换（交互模式）
 ```
-/model gpt-5.2 xhigh
+/model gpt-5.3-codex xhigh
 ```
 
 ### MCP 工具调用

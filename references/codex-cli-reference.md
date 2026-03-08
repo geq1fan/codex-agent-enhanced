@@ -14,7 +14,7 @@
 | `--dangerously-bypass-approvals-and-sandbox` | 无沙盒无审批（极危险） |
 | `--search` | 启用实时网络搜索 |
 | `--add-dir <DIR>` | 额外可写目录 |
-| `--no-alt-screen` | 禁用备用屏幕（tmux 友好，保留滚动历史） |
+| `--no-alt-screen` | 禁用备用屏幕（保留滚动历史） |
 | `--enable <FEATURE>` | 启用功能标志 |
 | `--disable <FEATURE>` | 禁用功能标志 |
 | `-p, --profile <PROFILE>` | 使用 config.toml 中的配置档案 |

@@ -1,7 +1,7 @@
 # Codex CLI 功能全览
 
-> 本机版本: **0.104.0** (stable) | 最新 alpha: 0.105.0-alpha.17
-> 最后更新: 2026-02-25
+> 本机版本: **0.110.0** (stable) | 最新 alpha: 0.105.0-alpha.17
+> 最后更新: 2026-03-08
 
 ## Feature Flags
 
@@ -152,6 +152,6 @@
 | `-C <DIR>` | 指定工作目录 |
 | `--search` | 启用实时网页搜索 |
 | `--add-dir <DIR>` | 额外可写目录 |
-| `--no-alt-screen` | 禁用 alternate screen（tmux 友好） |
+| `--no-alt-screen` | 禁用 alternate screen |
 | `--oss` | 使用本地开源模型 |
 | `--local-provider <P>` | 指定本地 provider（lmstudio/ollama） |
